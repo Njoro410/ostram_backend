@@ -25,11 +25,11 @@ class members(models.Model):
   phone_nos = models.CharField(blank=True, null=True, max_length=255)
   relationship = models.CharField(max_length=255, null = True, blank=True)
   image = models.ImageField(upload_to='members/passport_photo/', blank=True, null=True)
-  kra_pin = models.CharField(blank=True, null=True, max_length=60)
-
+  
+  class Meta:
+        db_table = "members"
         
   def __str__(self):
       return self.names
 
-  class Meta:
-    db_table = 'members'
+
