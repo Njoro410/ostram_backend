@@ -1,67 +1,118 @@
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
 from .models import *
 from .serializers import MemberSerializer, ResidentialAreaSerializer
-from django.http import Http404
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
 
 class StandardResultSetPagination(PageNumberPagination):
-  """
-  Returns paginated response
-  """
-  page_size = 50
-  page_size_query_param = 'page_size'
-  max_page_size = 1000
+    """
+    Returns paginated response
+    """
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
 
-class MemberList(generics.ListCreateAPIView):
-  """
-  GET, POST
-  List all members and creates new members. It also finds a member by member_no passed in as a query parameter
-  """
-  serializer_class = MemberSerializer
-  pagination_class = StandardResultSetPagination
 
-  def get_queryset(self):
+@api_view(['GET', 'POST'])
+def members_list(request):
+    """
+    GET, POST
+    List all members and creates new members.
+    """
+    if request.method == 'GET':
+        try:
+            all_members = members.objects.all()
+        except members.DoesNotExist:
+            return Response({'Error': 'There are no members'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = MemberSerializer(all_members, many=True)
+        pagination_class = StandardResultSetPagination
+        return Response({"message": "Success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+    elif request.method == "POST":
+        serializer = MemberSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Member created successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Member creation failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def member_detail(request, member_no):
+    """
+    GET, PUT/PATCH, DELETE
+    Display individual member by member no. Can update, view and delete member"""
+
     try:
-      queryset = members.objects.all()
-      query_param = self.request.query_params.get('q')
-      if query_param is not None:
-        queryset = queryset.filter(mbr_no=query_param)
-      return queryset
+        member = members.objects.get(mbr_no=member_no)
+    except members.DoesNotExist:
+        return Response({'message': 'Member does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-    except:
-      raise Http404
+    if request.method == 'GET':
+        serializer = MemberSerializer(member)
+        return Response({"message": "Success", "data": serializer.data})
 
-class MemberDetail(generics.RetrieveUpdateDestroyAPIView):
-  """
-  GET, PUT/PATCH, DELETE
-  Display individual member and updates with PUT, and deletes member
-  """
-  serializer_class = MemberSerializer
-  queryset = members.objects.all()
+    elif request.method == 'PUT':
+        serializer = MemberSerializer(member, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Member updated successfully", "data": serializer.data}, status=status.HTTP_202_ACCEPTED)
+        else:
+            return Response({"message": "Member update failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-# class MemberDetail(generics.RetrieveUpdateDestroyAPIView):
-#   serializer_class = MemberSerializer
-#   def get_queryset(self):
-#     try:
-#       members_list = members.objects.all()
-#       return members_list
-#     except:
-#       from django.http import Http404
-#       raise Http404('This user does not exist')
+    elif request.method == 'DELETE':
+        member.delete()
+        return Response({"message": "Member deleted successfullly"}, status=status.HTTP_204_NO_CONTENT)
 
-class ResidentialAreaList(generics.ListCreateAPIView):
-  """
-  GET, POST
-  List all residential areas and creates new ones.
-  """
-  serializer_class = ResidentialAreaSerializer
-  queryset = residential_areas.objects.all()
-  pagination_class = StandardResultSetPagination
 
-class ResidentialAreaDetail(generics.RetrieveUpdateDestroyAPIView):
-  """
-  GET, PUT/PATCH, DELETE
-  Display individual residential area with DELETE and updates with PUT, and deletes residential area with DELETE
-  """
-  serializer_class = ResidentialAreaSerializer
-  queryset = residential_areas.objects.all()
+@api_view(['GET', 'POST'])
+def residential_list(request):
+    """
+    Lists all residential areas and creates new residential areas.
+    """
+    if request.method == 'GET':
+        try:
+            residentials = residential_areas.objects.all()
+        except residential_areas.DoesNotExist:
+            return Response({'Error': 'There are no residential areas'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ResidentialAreaSerializer(residentials, many=True)
+        pagination_class = StandardResultSetPagination
+        return Response({"message": "Success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+    elif request.method == "POST":
+        serializer = ResidentialAreaSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Residential area created successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Residential area creation failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def residential_area_detail(request, residential_id):
+    """
+    Display, update or delete residential area
+    """
+    try:
+        residential_area = residential_areas.objects.get(pk=residential_id)
+    except residential_areas.DoesNotExist:
+        return Response({'message': 'Residential area does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = ResidentialAreaSerializer(residential_area)
+        return Response({"message": "Success", "data": serializer.data})
+
+    elif request.method == 'PUT':
+        serializer = ResidentialAreaSerializer(
+            residential_area, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Residential area updated successfully", "data": serializer.data}, status=status.HTTP_202_ACCEPTED)
+        else:
+            return Response({"message": "Residential area update failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        residential_area.delete()
+        return Response({"message": "residential area deleted successfullly"}, status=status.HTTP_204_NO_CONTENT)
